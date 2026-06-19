@@ -1,0 +1,14 @@
+{
+    "model_name": "RandomForest",
+    "avg_metrics": {
+        "mae": 6.22,
+        "rmse": 7.7,
+        "r2": 0.22
+    },
+    "latest_metrics": {
+        "fold": 4,
+        "mae": 6.1,
+        "rmse": 7.4,
+        "r2": 0.08
+    }
+}
