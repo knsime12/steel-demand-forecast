@@ -17,13 +17,21 @@ from src.inventory import calculate_inventory_status
 from src.chart import make_chart_data
 from src.company_plan import calculate_company_plan
 from src.risk_analysis import make_risk_analysis, extract_industry_importance
+from src.feature_names import get_feature_display_name
 
-def load_importance(config, top_n = 5) :
+def load_importance(config, top_n=5):
     importance_df = pd.read_csv(config["importance_path"])
+
+    if "display_name" not in importance_df.columns:
+        importance_df["display_name"] = importance_df["feature"].apply(
+            get_feature_display_name
+        )
+
     importance_df["importance"] = importance_df["importance"].round(2)
+
     importance_df = importance_df.sort_values(
-        by = "importance",
-        ascending = False
+        by="importance",
+        ascending=False
     ).head(top_n)
 
     return importance_df.to_dict(orient="records")

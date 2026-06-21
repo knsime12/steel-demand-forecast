@@ -1,0 +1,21 @@
+﻿feature,importance,display_name
+G_demand,0.3858345333837787,아연도강판 수요량
+is_month_12,0.24903991323711921,12월 여부
+appliance_prod_idx_diff_shock90,0.12507557026784338,appliance_prod_idx_diff_shock90
+auto_prod_lag2,0.05273391590933998,자동차 생산량(2개월 전)
+steel_capacity_idx_diff,0.039861661724599276,철강 생산능력지수(전월 대비 증감)
+is_month_1,0.02956836018332992,1월 여부
+month_diff,0.02956836018332969,월(전월 대비 증감)
+month_lag1,0.027644292241100203,월(1개월 전)
+CR_demand_diff_shock90,0.02140674389028991,CR_demand_diff_shock90
+appliance_prod_idx_lag1,0.008240826053627687,가전 생산지수(1개월 전)
+auto_domestic_ship_diff_shock90,0.004295926837853059,auto_domestic_ship_diff_shock90
+HR_inv,0.0017570134999900454,열연강판 재고량
+month,0.0017319447698942447,월
+auto_export_ship_diff_shock90,0.0,auto_export_ship_diff_shock90
+G_demand_diff,-0.0005757988687120462,아연도강판 수요량(전월 대비 증감)
+auto_export_ship_lag2,-0.0009094533900500412,자동차 수출 출하량(2개월 전)
+auto_export_ship,-0.0014390177261158434,자동차 수출 출하량
+auto_prod,-0.006832612522913594,자동차 생산량
+appliance_ship_idx_lag1,-0.008638681789954639,가전 출하지수(1개월 전)
+auto_prod_diff,-0.023789895468836662,자동차 생산량(전월 대비 증감)

@@ -1,0 +1,16 @@
+﻿feature,importance,display_name
+steel_capacity_idx_diff,0.1855011185846134,철강 생산능력지수(전월 대비 증감)
+month_lag2,0.16640770900724453,월(2개월 전)
+construction_order_amt_lag2,0.1323652875506341,건설 수주액(2개월 전)
+month_diff,0.10334394521353195,월(전월 대비 증감)
+HR_demand_diff,0.06227977272433419,열연강판 수요량(전월 대비 증감)
+month_lag1,0.05783448597255193,월(1개월 전)
+construction_order_amt_diff_shock90,0.04695224170063714,construction_order_amt_diff_shock90
+HR_prod_ma3,0.04195749650063865,열연강판 생산량(3개월 이동평균)
+HR_inv_diff,0.036249496276204336,열연강판 재고량(전월 대비 증감)
+HR_demand,0.029564200947522722,열연강판 수요량
+CR_demand,0.0286491735370244,냉연강판 수요량
+auto_domestic_ship_diff_shock90,0.0032043617832351935,auto_domestic_ship_diff_shock90
+auto_domestic_ship,0.0025093929867858297,자동차 내수 출하량
+CR_demand_diff,0.0016214263600039579,냉연강판 수요량(전월 대비 증감)
+is_month_12,0.00016876729175607785,12월 여부

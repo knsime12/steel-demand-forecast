@@ -1,0 +1,35 @@
+{
+    "model_name": "Ridge",
+    "target_type": "diff",
+    "best_params": {
+        "model__alpha": 0.0001,
+        "model__fit_intercept": true
+    },
+    "avg_metrics": {
+        "mae": 27.7725,
+        "rmse": 35.9396,
+        "r2": 0.5343,
+        "mape": 3.9191,
+        "hit_rate": 83.3333,
+        "turnaround_hit_rate": 62.963,
+        "turnaround_match_rate": 65.9574
+    },
+    "latest_metrics": {
+        "fold": 4,
+        "mae": 29.4368,
+        "rmse": 43.2638,
+        "r2": 0.2801,
+        "mape": 4.0889,
+        "hit_rate": 75.0,
+        "turnaround_hit_rate": 50.0,
+        "turnaround_match_rate": 54.5455
+    },
+    "next_forecast": {
+        "base_month": "2026-03-01",
+        "forecast_month": "2026-04-01",
+        "current_demand": 711.0,
+        "forecast_target": -63.4181,
+        "forecast_diff": -63.4181,
+        "forecast_demand": 647.5819
+    }
+}
