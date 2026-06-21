@@ -2,50 +2,54 @@ HR:
   name: 열연강판
 
   raw_data_path: data/raw/steel_demand.csv
-  train_data_path: data/processed/hr_train_df.csv
+  train_data_path: data/processed/HR/train_df.csv
+
+  features_path: data/processed/HR/features.pkl
+  metrics_path: data/processed/HR/metrics.json
+  importance_path: data/processed/HR/feature_importances.csv
+  prediction_path: data/processed/HR/predictions.csv
 
   date_col: date
   demand_col: HR_demand
   stock_col: HR_inv
   prod_col: HR_prod
 
-  model_path: models/HR/hr_rf_model.pkl
-  features_path: models/HR/hr_features.pkl
-  metrics_path: models/HR/hr_metrics.json
-  importance_path: models/HR/hr_feature_importances.csv
-  prediction_path: models/HR/hr_predictions.csv
+  model_path: models/HR/model.pkl
+
 
 CR:
   name: 냉연강판
 
   raw_data_path: data/raw/steel_demand.csv
-  train_data_path: data/processed/cr_train_df.csv
+  train_data_path: data/processed/CR/train_df.csv
+  
+  features_path: data/processed/CR/features.pkl
+  metrics_path: data/processed/CR/metrics.json
+  importance_path: data/processed/CR/feature_importances.csv
+  prediction_path: data/processed/CR/predictions.csv
 
   date_col: date
   demand_col: CR_demand
   stock_col: CR_inv
   prod_col: CR_prod
 
-  model_path: models/CR/cr_rf_model.pkl
-  features_path: models/CR/cr_features.pkl
-  metrics_path: models/CR/cr_metrics.json
-  importance_path: models/CR/cr_feature_importances.csv
-  prediction_path: models/CR/cr_predictions.csv
+  model_path: models/CR/model.pkl
 
 GI:
   name: 아연도강판
 
   raw_data_path: data/raw/steel_demand.csv
-  train_data_path: data/processed/gi_train_df.csv
+  train_data_path: data/processed/GI/train_df.csv
+  
+  features_path: data/processed/GI/features.pkl
+  metrics_path: data/processed/GI/metrics.json
+  importance_path: data/processed/GI/feature_importances.csv
+  prediction_path: data/processed/GI/predictions.csv
 
   date_col: date
   demand_col: G_demand
   stock_col: G_inv
   prod_col: G_prod
 
-  model_path: models/GI/gi_lgbm_model.pkl
-  features_path: models/GI/gi_features.pkl
-  metrics_path: models/GI/gi_metrics.json
-  importance_path: models/GI/gi_feature_importances.csv
-  prediction_path: models/GI/gi_predictions.csv
+  model_path: models/GI/model.pkl
  

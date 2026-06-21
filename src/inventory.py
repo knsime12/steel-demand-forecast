@@ -16,7 +16,7 @@ def calculate_inventory_status(config, raw_df, train_df, national_forecast_deman
     national_current_stock = latest_raw[config["stock_col"]]
 
     # 최근 12개월 수요 표준편차
-    recent_std = raw_df[config["demand_col"]].tail(12).std()
+    recent_std = train_df[config["demand_col"]].tail(12).std()
 
     # 전국 안전재고
     national_safety_stock = 1.65 * recent_std
