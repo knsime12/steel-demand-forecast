@@ -55,16 +55,25 @@ AI 기반 원자재 수요예측 플랫폼입니다.
 
 ## 주요 기능
 
-- 다음 달 철강재 수요 증감률 예측
-- 예측 증감률 기반 예측 수요량 계산
-- 전국 재고 부족량 및 안전재고 계산
-- 위험도 분석
-- 주요 영향 산업 분석
-- 실제 수요 / 예측 수요 차트 데이터 생성
-- 자사 시장점유율 기반 예상 수요 계산
-- 자사 출하 이력 기반 시장점유율 추정
-- 자사 생산 권장량 산출
-- 엑셀 업로드 기반 자사 데이터 입력
+- 열연강판(HR), 냉연강판(CR), 아연도강판(GI) 품목별 다음 달 수요 예측
+- 품목별 최적 타겟 유형 적용 및 예측 수요량 복원
+  - 실제 수요량(absolute)
+  - 수요 증감량(diff)
+  - 수요 증감률(rate)
+- 실제 수요량과 예측 수요량 기반 차트 데이터 생성
+- 전국 기준 현재 재고, 안전재고, 부족 예상 수량 계산
+- 예측 수요와 재고 상태를 기반으로 리스크 등급 산출
+- 주요 영향 산업 및 변수 중요도 제공
+- 모델 성능 지표 제공
+  - MAE, RMSE, R², MAPE
+  - Hit Rate
+  - Turnaround Hit Rate
+  - Turnaround Match Rate
+  - latest_metrics: 최근 검증 구간 성능(현재 12개월)
+  - avg_metrics: 전체 교차검증 평균 성능
+- 기업 시장점유율 또는 출하 이력 기반 기업 예상 수요 계산
+- 기업별 안전재고, 목표재고, 부족 수량, 권장 생산량 계산
+- 엑셀 업로드 기반 기업 출하/재고 데이터 입력 지원
 
 ---
 
@@ -80,7 +89,6 @@ AI 기반 원자재 수요예측 플랫폼입니다.
 
 - 데이터 수집 및 전처리
 - 수요예측 모델 개발
-- 다음 달 수요 증감률 로직 구현
 - 재고 부족량 및 위험도 분석 로직 구현
 - 자사 생산/재고 계산 및 가이드라인 제공 로직 구현
 - 서비스 모듈 구조 설계 및 Python 코드 구현
@@ -101,9 +109,37 @@ AI 기반 원자재 수요예측 플랫폼입니다.
 ### Machine Learning
 
 - Scikit-learn
+- Ridge
+- Lasso
+- ElasticNet
 - RandomForest
 - XGBoost
 - LightGBM
+
+### Model Validation
+
+- TimeSeriesSplit
+- Cross Validation
+- GridSearchCV
+
+### Feature Engineering
+
+- Lag Features
+- Difference Features
+- Moving Average Features
+- Shock Dummy Features
+- Calendar Dummy Features
+
+### Model Evaluation
+
+- MAE
+- RMSE
+- R²
+- MAPE
+- Hit Rate
+- Turnaround Hit Rate
+- Turnaround Match Rate
+- Permutation Importance
 
 ### Model Management
 
@@ -137,9 +173,9 @@ AI 기반 원자재 수요예측 플랫폼입니다.
     ↓
 최근 월 데이터 입력
     ↓
-다음 달 수요 증감률 예측
+다음 달 수요 예측
     ↓
-다음 달 예측 수요량 계산
+target_type에 따라 예측 수요랑 복원
 ```
 
 ### 재고 위험도 분석
@@ -180,7 +216,7 @@ AI 기반 원자재 수요예측 플랫폼입니다.
 
 ---
 
-## 주요 기능
+## 기능 상세
 
 ### 1. 다음 달 수요 예측
 
@@ -396,41 +432,56 @@ AI 기반 원자재 수요예측 플랫폼입니다.
 
 ## 모델링 방식
 
-본 프로젝트에서는 다음 달 수요량을 직접 예측하는 방식이 아닌,
-다음 달 수요 증감률을 예측한 뒤 최근 수요량에 반영하여 예측 수요량을 계산하는 방식을 사용했습니다.
+본 프로젝트는 품목별로 다음 달 수요를 예측합니다.
 
-```text
-최근 실제 수요량
-      ↓
-다음 달 증감률 예측
-      ↓
-예측 수요량 변환
-```
+모델은 품목별 실험 결과에 따라 다음 세 가지 타겟 중 적합한 방식을 선택합니다.
 
-예측 수요 계산 방식
+| 타겟 유형 | 의미 |
+|---|---|
+| absolute | 다음 달 실제 수요량 |
+| diff | 다음 달 수요량 - 현재 달 수요량 |
+| rate | 다음 달 수요 증감률 |
+
+예측 결과는 최종적으로 모두 다음 달 예측 수요량으로 복원됩니다.
+
+예를 들어 'target_type = "diff"'인 경우 :
 
 ```python
-forecast_demand = current_demand * (1 + forecast_change_rate / 100)
+forecast_demand = current_demand + predicted_diff
 ```
 
-이 방식을 사용한 이유
+'target_type = "rate"'인 경우 :
 
-- 월별 수요량의 절대값 변동이 큼
-- 실제 서비스에서 "수요 증가/감소"를 직관적으로 보여줄 수 있음
+```python
+forecast_demand = current_demand * (1 + predicted_rate / 100)
+```
 
 ---
 
-## 모델 성능
+## 모델 성능 지표
 
-열연강판 수요 예측 모델(RandomForest) 기준 성능입니다.
+모델 성능은 TimeSeriesSplit 기반 교차검증으로 평가합니다.
 
-|구분|MAE(%p)|RMSE(%p)|R² Score|
-|------|------|------|------|
-|평균 성능|5.52|7.11|0.33|
-|최신 검증 성능(Fold 4)|4.80|6.10|0.46|
+`metrics.json`에는 두 종류의 성능이 저장됩니다.
 
-※ MAE는 수요 증감률 예측 오차를 의미하며,
-평균적으로 약 ±5.5%p 수준의 오차를 보였습니다.
+| 구분 | 설명 |
+|---|---|
+| avg_metrics | 전체 fold 평균 성능 |
+| latest_metrics | 가장 최근 fold 성능 |
+
+웹서비스에서는 최근 시장 흐름을 반영하기 위해 `latest_metrics`를 대표 성능으로 표시하고, `avg_metrics`는 보조 지표로 제공합니다.
+
+주요 지표는 다음과 같습니다.
+
+| 지표 | 설명 |
+|---|---|
+| mae | 평균 절대 오차 |
+| rmse | 평균 제곱근 오차 |
+| r2 | 결정계수 |
+| mape | 평균 절대 백분율 오차 |
+| hit_rate | 수요 증가/감소 방향 적중률 |
+| turnaround_hit_rate | 실제 전환점 중 예측 전환점 적중률 |
+| turnaround_match_rate | 실제/예측 전환점 일치율 |
 
 ---
 
@@ -450,52 +501,43 @@ forecast_demand = current_demand * (1 + forecast_change_rate / 100)
 ## 프로젝트 서비스 파일 구조
 
 ```text
-steel-forecast-demand/
-├── configs/ 
-│     └── items.yaml
-│ 
+steel-demand-forecast/
+├── configs/
+│   └── items.yaml
 ├── data/
-│     ├── raw/
-|     |    └── steel_demand.csv
-|     |
-│     └── processed
-│          ├── hr_train_df.csv
-│          ├── cr_train_df.csv
-│          └── gi_train_df.csv
-│ 
+│   ├── raw/
+│   │   └── steel_demand.csv
+│   └── processed/
+│       ├── HR/
+│       │   ├── train_df.csv
+│       │   ├── predictions.csv
+│       │   ├── metrics.json
+│       │   ├── feature_importances.csv
+│       │   └── features.pkl
+│       ├── CR/
+│       └── GI/
 ├── models/
-│     ├── HR/
-|     |    ├── hr_feature_importances.csv
-│     |    ├── hr_features.py
-│     |    ├── hr_metrics.json
-│     |    ├── hr_predictions.csv
-│     |    └── hr_rf_model.pkl
-|     |
-│     ├── CR/
-|     |    ├── cr_feature_importances.csv
-│     |    ├── cr_features.py
-│     |    ├── cr_metrics.json
-│     |    ├── cr_predictions.csv
-│     |    └── cr_rf_model.pkl
-|     |
-│     └── GI/
-|          ├── gi_feature_importances.csv
-│          ├── gi_features.py
-│          ├── gi_metrics.json
-│          ├── gi_predictions.csv
-│          └── gi_rf_model.pkl
-|     
+│   ├── HR/
+│   │   └── model.pkl
+│   ├── CR/
+│   │   └── model.pkl
+│   └── GI/
+│       └── model.pkl
+├── scripts/
+│   ├── train_utils.py
+│   ├── experiment.py
+│   └── update_item_model.py
 ├── src/
-│     ├── config_loader.py
-│     ├── data_loader.py
-│     ├── predict.py
-│     ├── inventory.py
-│     ├── risk_analysis.py
-│     ├── company_plan.py
-│     ├── chart.py
-│     ├── upload_parser.py
-│     └── service.py
-│
+│   ├── config_loader.py
+│   ├── data_loader.py
+│   ├── predict.py
+│   ├── inventory.py
+│   ├── risk_analysis.py
+│   ├── company_plan.py
+│   ├── chart.py
+│   ├── upload_parser.py
+│   ├── feature_names.py
+│   └── service.py
 ├── main.py
 ├── data.xlsx
 ├── README.md
@@ -506,53 +548,283 @@ steel-forecast-demand/
 
 ## 핵심 모듈 설명
 
-### config_loader.py
+### configs/items.yaml
 
-- 품목별 설정 정보를 로드합니다.
+품목별 설정 파일입니다.
 
-### data_loader.py
+각 품목의 데이터 경로, 모델 경로, 성능 지표 경로, 예측 결과 경로, 수요/재고/생산 컬럼명을 관리합니다.
 
-- 원본 및 학습 데이터를 로드합니다.
+지원 품목 :
 
-### predict.py
-
-- 학습된 모델을 불러와 다음 달 수요 증감률과 수요량을 계산합니다.
-
-### inventory.py
-
-- 현재 재고, 안전 재고, 부족 예상 수량을 계산합니다.
-
-### risk_analysis.py
-
-- 현재 재고, 예측 수요량, 부족 예상 수량을 기반으로 위험도를 분석합니다.
-
-### company_plan.py
-
-- 자사 점유율 기반으로 수요, 생산 권장량 등을 계산합니다.
-
-### chart.py
-
-- 대시보드 시각화를 위한 실제 수요 / 예측 수요 데이터를 생성합니다.
-
-### upload_parser.py
-
-- 엑셀 업로드 파일에서 월별 출하량과 재고량을 추출합니다.
-
-### service.py
-
-- 전체 기능을 통합하여 서비스 결과를 반환합니다.
-
-### main.py
-
-- 테스트 파일입니다.
-
-### data.xlsx
-
-- 엑셀 형식 템플릿입니다.
+|코드|품목|
+|---|---|
+|HR|열연강판|
+|CR|냉연강판|
+|GI|아연도강판|
 
 ---
 
-## 실행 방법
+### src/config_loader.py
+
+`configs/items.yaml`에서 품목별 설정 정보를 불러오는 모듈입니다.
+
+서비스 함수에서 품목 코드를 입력받으면 해당 품목의 모델 경로, 데이터 경로, 컬럼명을 이 모듈을 통해 조회합니다.
+
+---
+
+### src/data_loader.py
+
+원본 데이터와 학습용 데이터를 불러오는 모듈입니다.
+
+- `data/raw/steel_demand.csv`
+- `data/processed/{item_code}/train_df.csv`
+
+위 데이터를 읽어 서비스 로직에서 사용할 수 있도록 제공합니다.
+
+---
+
+### src/predict.py
+
+저장된 모델을 불러와 다음 달 전국 수요를 예측하는 모듈입니다.
+
+주요 역할:
+
+- `models/{item_code}/model.pkl` 로드
+- `data/processed/{item_code}/features.pkl` 로드
+- 최신 월 데이터를 기반으로 다음 달 예측값 산출
+- `target_type`에 따라 예측값을 실제 수요량으로 복원
+
+타겟 복원 방식:
+
+| target_type | 복원 방식 |
+|---|---|
+| absolute | 예측값을 다음 달 수요량으로 사용 |
+| diff | 현재 수요량 + 예측 증감량 |
+| rate | 현재 수요량 × (1 + 예측 증감률 / 100) |
+
+---
+
+### src/inventory.py
+
+전국 기준 재고 상태를 계산하는 모듈입니다.
+
+주요 계산 항목:
+
+- 현재 재고
+- 최근 수요 변동성
+- 안전재고
+- 부족 예상 수량
+
+예측 수요와 현재 재고를 비교해 재고 부족 여부를 판단하는 데 사용됩니다.
+
+---
+
+### src/risk_analysis.py
+
+예측 수요와 재고 상태를 바탕으로 리스크 수준을 분석하는 모듈입니다.
+
+주요 역할:
+
+- 리스크 등급 산출
+- 부족 예상 시점 계산
+- 재고 유지 가능 개월 수 계산
+- 주요 영향 산업 추출
+
+리스크 등급은 대략 다음 기준으로 해석합니다.
+
+| 등급 | 의미 |
+|---|---|
+| LOW | 재고 부족 위험이 낮음 |
+| MEDIUM | 일정 기간 내 재고 부족 가능성 있음 |
+| HIGH | 단기 재고 부족 위험 높음 |
+
+---
+
+### src/company_plan.py
+
+기업별 생산/재고 가이드라인을 계산하는 모듈입니다.
+
+전국 예측 수요를 기준으로 기업의 시장 점유율 또는 출하 이력을 반영해 기업의 예상 수요를 계산합니다.
+
+주요 계산 항목 :
+
+- 기업 예상 수요
+- 기업 시장점유율
+- 기업 안전재고
+- 기업 목표재고
+- 부족 수량
+- 필요 생산량
+- 권장 생산량
+- 생산능력 초과 여부
+
+---
+
+### src/chart.py
+
+웹 화면에서 사용할 차트 데이터를 생성하는 모듈입니다.
+
+실제 수요량과 예측 수요량을 월별로 정리해 반환합니다.
+
+반환 예시:
+
+```python
+[
+    {
+        "date": "2026-03",
+        "actual_demand": 1365,
+        "forecast_demand": 1366
+    },
+    {
+        "date": "2026-04",
+        "actual_demand": None,
+        "forecast_demand": 1359
+    }
+]
+```
+
+---
+
+### src/feature_names.py
+
+모델 변수명을 사용자 친화적인 한글 표시명으로 변환하는 모듈입니다.
+
+예 :
+
+|원본 변수명|표시명|
+|---|---|
+|HR_demand_diff|열연강판 수요량(전월 대비 증감)|
+|CR_inv_lag1|냉연강판 재고량(1개월 전|
+|construction_order_amt_diff_shock90|건설 수주액 급변구간|
+
+웹 서비스에서 변수 중요도를 보여줄 때 사용됩니다.
+
+---
+
+### src/upload_parser.py
+
+기업이 업로드한 엑셀 파일에서 출하량과 재고 데이터를 읽는 모듈입니다.
+
+사용 예시 :
+
+```python
+from src.upload_parser import load_company_shipments_from_excel
+
+upload_data = load_company_shipments_from_excel("data.xlsx")
+```
+
+반환 데이터는 `get_company_guideline()` 의 입력값으로 사용할 수 있습니다.
+
+---
+
+### src/service.py
+
+전체 서비스 결과를 조합하는 핵심 모듈입니다.
+
+주요 함수 :
+
+```python
+get_item_result(item_code, start_date, end_date)
+```
+
+해당 함수는 다음 정보를 하나의 결과로 묶어 반환합니다.
+
+- 다음 달 전국 수요 예측
+- 재고 상태
+- 리스크 분석
+- 모델 성능 지표
+- 변수 중요도
+- 차트 데이터
+
+반환 구조 :
+```python
+{
+    "item_code": "HR",
+    "item_name": "열연강판",
+    "forecast_month": "2026-04",
+    "national_forecast": {},
+    "inventory_status": {},
+    "risk_analysis": {},
+    "model_info": {},
+    "feature_importance": [],
+    "chart_data": []
+}
+```
+
+---
+
+### scripts/train_utils.py
+
+모델 학습, 검증, 저장 로직을 모아둔 학습 유틸리티 모듈입니다.
+
+주요 역할 :
+
+- 원본 데이터 전처리
+- lag, diff, ma, shock_dummy 변수 생성
+- 타겟 생성
+- 모델 튜닝
+- TimeSeriesSplit 검증
+- MAE, RMSE, R², MAPE, Hit Rate, Turnaround 지표 계산
+- 예측 이력 생성
+- 모델 및 산출물 저장
+
+생성되는 주요 산출물 :
+
+```text
+models/{item_code}/model.pkl
+data/processed/{item_code}/train_df.csv
+data/processed/{item_code}/features.pkl
+data/processed/{item_code}/metrics.json
+data/processed/{item_code}/predictions.csv
+data/processed/{item_code}/feature_importances.csv
+```
+
+---
+
+### scripts/experiment.py
+
+품목별 변수 조합과 타겟 유형을 실험하는 파일입니다.
+
+저장 없이 성능만 확인할 때 사용합니다.
+
+```bash
+python scripts/experiment.py
+```
+
+`features` 목록을 바꾸면서 변수의 조합과 타겟의 설정을 비교합니다.
+
+---
+
+### scripts/update_item_model.py
+
+최종 선택한 변수 조합으로 모델을 학습하고 산출물을 저장하는 파일입니다.
+
+```bash
+python scripts/update_item_model.py
+```
+
+실험이 끝난 뒤 최종 모델을 갱신할 때 사용합니다.
+
+저장되는 결과는 웹서비스의 `get_item_result()` 에서 사용됩니다.
+
+---
+
+### main.py
+
+서비스 함수가 정상적으로 동작하는지 확인하기 위한 실행 파일입니다.
+
+개발 중 테스트 용도로 사용합니다.
+
+---
+
+### data.xlsx
+
+기업 출하량/재고 업로드 예시 파일입니다.
+
+`upload_parser.py` 에서 읽어 기업별 생산/재고 가이드라인 계산에 사용할 수 있습니다.
+
+---
+
+## 실행 예시
 
 ### 라이브러리 설치
 
@@ -573,7 +845,7 @@ from src.service import get_item_result
 import json
 
 result = get_item_result(
-  item_code = "CR",
+  item_code = "HR",
   start_date = "2024-01",
   end_date = "2026-03"
 )
@@ -625,22 +897,33 @@ result = get_company_guideline(
 
 print(json.dumps(result, ensure_ascii = False, indent = 2))
 ```
+※ 엑셀의 shipment 컬럼은 월별 출하 이력으로 읽혀 `shipment_history`에 전달됩니다.
 
 ---
 
 ## 기대효과
 
-- 철강재 수요 변동에 대한 사전 대응 가능
-- 재고 부족 위험을 조기에 파악
-- 과잉 재고로 인한 보관비용 감소 효과
-- 생산 부족 문제 완화
-- 예측 결과를 실제 생산 계획에 연결
-- 제조업 의사결정 지원 서비스 구현 경험 확보
+- 품목별 월별 수요 변동을 사전에 파악하여 재고 및 생산 계획 수립 지원
+- 수요 예측 결과를 기반으로 재고 부족 가능성을 조기에 확인
+- 안전 재고와 부족 예상 수량을 함께 제공하여 재고 관리 의사결정 보조
+- 과잉 재고와 생산 부족으로 인한 비용 및 운영 리스크 완화
+- 주요 영향 변수와 산업군 정보를 제공하여 예측 결과 해석 가능성 향상
+- 기업의 시장 점유율 또는 출하 이력을 반영한 맞춤형 생산 가이드라인 제공
+- 모델 성능 지표를 함께 제공하여 결과의 신뢰도 판단 지원
+- 철강재 수요 예측, 재고 리스크 분석, 생산 계획을 하나의 서비스 흐름으로 연결
 
 ## 향후 개선 사항
 
-- 철강재 품목 추가
-- 예측 결과 신뢰구간 제공
-- 재고 부족 알림 기능 추가
-- 실제 ERP / MES 데이터 연동
-- 모델 성능 모니터링 및 주기적 재학습 파이프라인 구축
+- 예측 결과에 대한 신뢰구간 또는 예측 범위 제공
+- 품목별 모델 성능 모니터링 및 주기적 재학습 자동화
+- 신규 데이터 업로드 시 자동 학습/예측 파이프라인 구축
+- ERP, MES, 재고관리 시스템과의 데이터 연동
+- 재고 부족 위험 알림 기능 추가
+- 품목별/기업별 대시보드 시각화 기능 강화
+- 시나리오 분석 기능 추가
+  - 수요 증가/감소 상황
+  - 재고 수준 변화
+  - 리드타임 변화
+  - 생산능력 제한
+- 더 많은 철강재 품목 및 외부 경제지표 추가
+- 예측 오차가 큰 구간에 대한 원인 분석 기능 고도화
