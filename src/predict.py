@@ -36,6 +36,7 @@ def forecast_next_month(config, train_df, raw_df):
     features = joblib.load(config["features_path"])
     metrics = load_metrics(config)
     target_type = metrics.get("target_type", "rate")
+    forecast_horizon = metrics.get("forecast_horizon", 1)
 
     latest_train = train_df.sort_values(config["date_col"]).iloc[[-1]]
     latest_raw = raw_df.sort_values(config["date_col"]).iloc[[-1]]
@@ -64,12 +65,13 @@ def forecast_next_month(config, train_df, raw_df):
 
     forecast_month = (
         latest_raw[config["date_col"]].iloc[0]
-        + pd.DateOffset(months=1)
+        + pd.DateOffset(months=forecast_horizon)
     )
 
     return {
         "forecast_month": forecast_month.strftime("%Y-%m"),
         "target_type": target_type,
+        "forecast_horizon": forecast_horizon,
         "national_forecast_target": round(float(forecast_target), 2),
         "national_forecast_diff": round(float(national_forecast_diff), 2),
         "national_forecast_change_rate": round(float(national_forecast_change_rate), 2),

@@ -25,11 +25,12 @@
         "turnaround_match_rate": 54.5455
     },
     "next_forecast": {
-        "base_month": "2026-03-01",
-        "forecast_month": "2026-04-01",
-        "current_demand": 711.0,
-        "forecast_target": -63.4181,
-        "forecast_diff": -63.4181,
-        "forecast_demand": 647.5819
-    }
+        "base_month": "2026-04-01",
+        "forecast_month": "2026-05-01",
+        "current_demand": 723.0,
+        "forecast_target": -37.2925,
+        "forecast_diff": -37.2925,
+        "forecast_demand": 685.7075
+    },
+    "forecast_horizon": 1
 }

@@ -1,5 +1,8 @@
 import os
 import sys
+import warnings
+
+from sklearn.exceptions import ConvergenceWarning
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -9,10 +12,15 @@ if PROJECT_ROOT not in sys.path:
 from train_utils import run_training_pipeline
 
 
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
 ITEM_CODE = "HR"
 DEMAND_COL = "HR_demand"
+TARGET_TYPE = "diff"
+FORECAST_HORIZON = 1
+TEST_SIZE = 10
 
-features = [
+FEATURES = [
     "HR_demand_diff",
     "HR_demand",
     "month_diff",
@@ -30,14 +38,16 @@ features = [
     "is_month_12",
 ]
 
+
 if __name__ == "__main__":
-    result = run_training_pipeline(
+    run_training_pipeline(
         item_code=ITEM_CODE,
         demand_col=DEMAND_COL,
-        features=features,
-        target_type="diff",
+        features=FEATURES,
+        target_type=TARGET_TYPE,
+        forecast_horizon=FORECAST_HORIZON,
         data_path="data/raw/steel_demand.csv",
         n_splits=4,
-        test_size=10,
-        save=False
+        test_size=TEST_SIZE,
+        save=False,
     )

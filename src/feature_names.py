@@ -31,11 +31,45 @@ FEATURE_NAME_MAP = {
 }
 
 
+FEATURE_GROUP_MAP = {
+    "HR": "HR 수요/생산/재고",
+    "CR": "CR 수요/생산/재고",
+    "G": "GI 수요/생산/재고",
+    "auto": "자동차",
+    "construction": "건설",
+    "appliance": "가전",
+    "usdkrw": "환율",
+    "leading": "경기/금리",
+    "gov_bond": "경기/금리",
+    "iron_ore": "원자재",
+    "steel_capacity": "철강 설비/가동",
+    "steel_operating": "철강 설비/가동",
+    "month": "계절성",
+    "is_month": "계절성",
+}
+
+
+INDUSTRY_GROUPS = {
+    "자동차": "자동차",
+    "건설": "건설",
+    "가전": "가전",
+}
+
+
+def get_feature_group(feature):
+    for prefix, group_name in FEATURE_GROUP_MAP.items():
+        if feature == prefix or feature.startswith(f"{prefix}_"):
+            return group_name
+
+    return "기타"
+
+
 def get_feature_display_name(feature):
     suffix_map = {
         "_lag1": "(1개월 전)",
         "_lag2": "(2개월 전)",
         "_diff": "(전월 대비 증감)",
+        "_diff2": "(2개월 대비 증감)",
         "_ma3": "(3개월 이동평균)"
     }
 

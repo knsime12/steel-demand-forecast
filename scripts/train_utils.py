@@ -15,29 +15,6 @@ from sklearn.inspection import permutation_importance
 from src.feature_names import get_feature_display_name
 
 
-DEFAULT_SHOCK_SOURCE_COLS = [
-    "construction_order_amt_diff",
-    "G_inv_diff",
-    "usdkrw_avg_diff",
-    "CR_inv_diff",
-    "gov_bond_3y_avg_diff",
-    "leading_idx_diff",
-    "steel_operating_rate_diff",
-    "steel_capacity_idx_diff",
-    "appliance_ship_idx_diff",
-    "G_prod_diff",
-    "CR_prod_diff",
-    "CR_demand_diff",
-    "appliance_prod_idx_diff",
-    "G_demand_diff",
-    "month_diff",
-    "iron_ore_price_diff",
-    "auto_export_ship_diff",
-    "auto_domestic_ship_diff",
-    "auto_prod_diff",
-]
-
-
 def ensure_dirs(item_code):
     os.makedirs(f"models/{item_code}", exist_ok=True)
     os.makedirs(f"data/processed/{item_code}", exist_ok=True)
@@ -77,9 +54,19 @@ def add_common_features(df):
         generated_features[f"{col}_lag1"] = df[col].shift(1)
         generated_features[f"{col}_lag2"] = df[col].shift(2)
         generated_features[f"{col}_diff"] = df[col] - df[col].shift(1)
+        generated_features[f"{col}_diff2"] = df[col] - df[col].shift(2)
 
     if generated_features:
         df = pd.concat([df, pd.DataFrame(generated_features, index=df.index)], axis=1)
+
+    shock_features = {}
+    diff_cols = [col for col in df.columns if col.endswith("_diff")]
+    for col in diff_cols:
+        threshold = df[col].abs().quantile(0.9)
+        shock_features[f"{col}_shock90"] = (df[col].abs() > threshold).astype(int)
+
+    if shock_features:
+        df = pd.concat([df, pd.DataFrame(shock_features, index=df.index)], axis=1)
 
     ma_cols = [
         "HR_demand",
@@ -99,13 +86,6 @@ def add_common_features(df):
         df = pd.concat([df, pd.DataFrame(ma_features, index=df.index)], axis=1)
 
     dummy_features = {}
-    for col in DEFAULT_SHOCK_SOURCE_COLS:
-        if col not in df.columns:
-            continue
-
-        threshold = df[col].abs().quantile(0.90)
-        dummy_features[f"{col}_shock90"] = (df[col].abs() > threshold).astype(int)
-
     for month in [1, 12]:
         dummy_features[f"is_month_{month}"] = (df["month"] == month).astype(int)
 
@@ -115,8 +95,8 @@ def add_common_features(df):
     return df
 
 
-def make_target(df, demand_col, target_type):
-    next_demand = df[demand_col].shift(-1)
+def make_target(df, demand_col, target_type, forecast_horizon=1):
+    next_demand = df[demand_col].shift(-forecast_horizon)
     current_demand = df[demand_col]
 
     if target_type == "absolute":
@@ -154,10 +134,10 @@ def restore_demand(current_demand, y_true, y_pred, target_type):
     return actual_demand, forecast_demand, actual_diff, forecast_diff
 
 
-def make_item_dataset(df, demand_col, features, target_type):
+def make_item_dataset(df, demand_col, features, target_type, forecast_horizon=1):
     df = df.copy()
 
-    df["target"] = make_target(df, demand_col, target_type)
+    df["target"] = make_target(df, demand_col, target_type, forecast_horizon)
 
     use_features = [col for col in features if col in df.columns]
 
@@ -312,7 +292,7 @@ def calc_direction_metrics(pred_df):
     }
 
 
-def evaluate_model(model, X, y, dates, model_df, demand_col, target_type, tscv):
+def evaluate_model(model, X, y, dates, model_df, demand_col, target_type, forecast_horizon, tscv):
     scores = []
     predictions = []
     importances = []
@@ -343,7 +323,7 @@ def evaluate_model(model, X, y, dates, model_df, demand_col, target_type, tscv):
 
         forecast_month = (
             pd.to_datetime(model_df.loc[test_idx, "date"])
-            + pd.DateOffset(months=1)
+            + pd.DateOffset(months=forecast_horizon)
         )
 
         fold_pred_df = pd.DataFrame({
@@ -419,7 +399,7 @@ def evaluate_model(model, X, y, dates, model_df, demand_col, target_type, tscv):
     return score_df, pred_df, importance_df, total_direction_metrics
 
 
-def make_next_forecast(final_model, feature_df, features, demand_col, target_type):
+def make_next_forecast(final_model, feature_df, features, demand_col, target_type, forecast_horizon):
     predict_df = feature_df.dropna(subset=features).reset_index(drop=True)
 
     latest_row = predict_df.iloc[[-1]].copy()
@@ -436,7 +416,7 @@ def make_next_forecast(final_model, feature_df, features, demand_col, target_typ
         target_type=target_type
     )
 
-    forecast_month = latest_row["date"].iloc[0] + pd.DateOffset(months=1)
+    forecast_month = latest_row["date"].iloc[0] + pd.DateOffset(months=forecast_horizon)
 
     return {
         "base_month": str(latest_row["date"].iloc[0].date()),
@@ -455,8 +435,9 @@ def make_final_prediction_history(
     y,
     demand_col,
     target_type,
+    forecast_horizon,
     start_date="2017-01",
-    end_date="2026-03"
+    end_date=None
 ):
     forecast_target = final_model.predict(X)
     current_demand = model_df[demand_col].values
@@ -469,13 +450,16 @@ def make_final_prediction_history(
     )
 
     prediction_df = pd.DataFrame({
-        "date": pd.to_datetime(model_df["date"]) + pd.DateOffset(months=1),
+        "date": pd.to_datetime(model_df["date"]) + pd.DateOffset(months=forecast_horizon),
         "actual_demand": actual_demand,
         "predicted_demand": predicted_demand
     })
 
     start_date = pd.to_datetime(start_date)
-    end_date = pd.to_datetime(end_date)
+    if end_date is None:
+        end_date = prediction_df["date"].max()
+    else:
+        end_date = pd.to_datetime(end_date)
 
     prediction_df = prediction_df[
         (prediction_df["date"] >= start_date) &
@@ -487,7 +471,7 @@ def make_final_prediction_history(
     return prediction_df.reset_index(drop=True)
 
 
-def build_metrics(best_result, score_df, pred_df, direction_metrics, target_type, next_forecast):
+def build_metrics(best_result, score_df, pred_df, direction_metrics, target_type, forecast_horizon, next_forecast):
     latest = score_df.iloc[-1]
 
     best_params = {
@@ -503,6 +487,7 @@ def build_metrics(best_result, score_df, pred_df, direction_metrics, target_type
     return {
         "model_name": best_result["model_name"],
         "target_type": target_type,
+        "forecast_horizon": forecast_horizon,
         "best_params": best_params,
 
         "avg_metrics": {
@@ -585,6 +570,7 @@ def run_training_pipeline(
     demand_col,
     features,
     target_type,
+    forecast_horizon=1,
     data_path="data/raw/steel_demand.csv",
     n_splits=4,
     test_size=15,
@@ -603,7 +589,8 @@ def run_training_pipeline(
         df=feature_df,
         demand_col=demand_col,
         features=features,
-        target_type=target_type
+        target_type=target_type,
+        forecast_horizon=forecast_horizon
     )
 
     print("사용 Features:", used_features)
@@ -637,6 +624,7 @@ def run_training_pipeline(
         model_df=model_df,
         demand_col=demand_col,
         target_type=target_type,
+        forecast_horizon=forecast_horizon,
         tscv=tscv
     )
 
@@ -648,7 +636,8 @@ def run_training_pipeline(
         feature_df=feature_df,
         features=used_features,
         demand_col=demand_col,
-        target_type=target_type
+        target_type=target_type,
+        forecast_horizon=forecast_horizon
     )
 
     prediction_history_df = make_final_prediction_history(
@@ -658,8 +647,8 @@ def run_training_pipeline(
         y=y,
         demand_col=demand_col,
         target_type=target_type,
-        start_date="2017-01",
-        end_date="2026-03"
+        forecast_horizon=forecast_horizon,
+        start_date="2017-01"
     )
 
     metrics = build_metrics(
@@ -668,7 +657,8 @@ def run_training_pipeline(
         pred_df=pred_df,
         direction_metrics=direction_metrics,
         next_forecast=next_forecast,
-        target_type=target_type
+        target_type=target_type,
+        forecast_horizon=forecast_horizon
     )
 
     print("\n========== 복원 수요 기준 평균 성능 ==========")
@@ -702,6 +692,7 @@ def run_training_pipeline(
         "item_code": item_code,
         "features": used_features,
         "best_model": final_model,
+        "feature_df": feature_df,
         "scores": score_df,
         "baseline": baseline_df,
         "predictions": prediction_history_df,

@@ -1,58 +1,73 @@
 import pandas as pd
 
 
-def load_company_shipments_from_excel(file_path):
+REQUIRED_OUTPUT_COLUMNS = [
+    "item_code",
+    "planned_production",
+    "current_stock",
+    "target_stock",
+    "market_share",
+]
+
+
+COLUMN_ALIASES = {
+    "품목": "item_code",
+    "품목코드": "item_code",
+    "회사 생산계획": "planned_production",
+    "회사 기존 생산계획": "planned_production",
+    "생산계획": "planned_production",
+    "회사 현재 재고": "current_stock",
+    "현재 재고": "current_stock",
+    "회사 목표 재고": "target_stock",
+    "목표 재고": "target_stock",
+    "회사 시장점유율": "market_share",
+    "시장점유율": "market_share",
+}
+
+
+def load_plan_risk_inputs_from_excel(file_path):
     """
-    엑셀 업로드 파일에서 월별 출하량과 현재 재고를 추출한다.
+    운영 기준 입력 엑셀을 리스크 모니터링 입력값으로 변환
 
-    필수 컬럼:
-    - date
-    - shipment
-
-    선택 컬럼:
-    - stock
+    계획/재고 입력 화면의 Excel 업로드 기능에서 사용
     """
-
     df = pd.read_excel(file_path)
+    df = df.rename(columns=COLUMN_ALIASES)
 
-    # 컬럼명 공백 제거
-    df.columns = df.columns.str.strip()
+    missing_columns = [
+        col for col in REQUIRED_OUTPUT_COLUMNS
+        if col not in df.columns
+    ]
+    if missing_columns:
+        raise ValueError(f"필수 입력 컬럼이 없습니다: {missing_columns}")
 
-    # 한글 컬럼명도 허용
-    df = df.rename(columns={
-        "월": "date",
-        "날짜": "date",
-        "출하량": "shipment",
-        "재고량": "stock",
-        "현재재고": "stock"
-    })
+    result_df = df[REQUIRED_OUTPUT_COLUMNS].copy()
+    result_df = result_df.dropna(how="all")
+    result_df = result_df[result_df["item_code"].notna()].copy()
+    result_df["item_code"] = result_df["item_code"].astype(str).str.strip().str.upper()
 
-    required_cols = ["date", "shipment"]
+    allowed_items = {"HR", "CR", "GI"}
+    invalid_items = sorted(set(result_df["item_code"]) - allowed_items)
+    if invalid_items:
+        raise ValueError(f"지원하지 않는 품목 코드입니다: {invalid_items}")
 
-    for col in required_cols:
-        if col not in df.columns:
-            raise ValueError(f"필수 컬럼이 없습니다: {col}")
+    duplicated_items = result_df[result_df["item_code"].duplicated()]["item_code"].tolist()
+    if duplicated_items:
+        raise ValueError(f"중복된 품목 코드가 있습니다: {duplicated_items}")
 
-    df["date"] = pd.to_datetime(df["date"])
-    df["shipment"] = pd.to_numeric(df["shipment"], errors="coerce")
+    numeric_columns = [
+        "planned_production",
+        "current_stock",
+        "target_stock",
+        "market_share",
+    ]
+    for col in numeric_columns:
+        result_df[col] = pd.to_numeric(result_df[col], errors="coerce")
 
-    if "stock" in df.columns:
-        df["stock"] = pd.to_numeric(df["stock"], errors="coerce")
+    if result_df[numeric_columns].isna().any().any():
+        raise ValueError("생산계획, 재고, 시장점유율은 숫자로 입력해야 합니다.")
 
-    df = df.dropna(subset=["date", "shipment"])
-    df = df.sort_values("date")
+    if (result_df["market_share"] < 0).any() or (result_df["market_share"] > 100).any():
+        raise ValueError("시장점유율은 0 이상 100 이하로 입력해야 합니다.")
 
-    monthly_shipments = df["shipment"].tolist()
-
-    current_stock = None
-
-    if "stock" in df.columns:
-        stock_df = df.dropna(subset=["stock"])
-
-        if len(stock_df) > 0:
-            current_stock = stock_df["stock"].iloc[-1]
-
-    return {
-        "monthly_shipments": monthly_shipments,
-        "current_stock": None if current_stock is None else int(round(current_stock))
-    }
+    return result_df.to_dict(orient="records")
